@@ -54,6 +54,7 @@ public class Bot extends TelegramLongPollingBot {
 
     private boolean isAwaitingMessage;
     private boolean isAwaitingPhraseId;
+    @Value("${bot.vk.token}")
     private String token;
     private User currentUser;
 
@@ -66,12 +67,16 @@ public class Bot extends TelegramLongPollingBot {
                 .logger(new Slf4jLogger(UserClient.class))
                 .logLevel(Logger.Level.FULL)
                 .target(UserClient.class, "http://" + host + ":8080");
-        count = new CountForToday(0, LocalDateTime.now());
+        count = new CountForToday(0,0, LocalDateTime.now());
     }
 
     @Override
     public void onUpdateReceived(Update update) {
         try {
+            if (!update.getMessage().getChatId().equals(963854280L)) {
+                System.out.println("Somebody else is trying to connect");
+                return;
+            }
             String input = update.getMessage().getText();
             if (token == null && !input.startsWith("Token")) {
                 sendMessage(update.getMessage().getChatId(), "Please, update token");
@@ -137,7 +142,8 @@ public class Bot extends TelegramLongPollingBot {
                     handleMessage(update);
                     break;
                 case "/count":
-                    sendMessage(update.getMessage().getChatId(), "Users added today: " + count.getCount());
+                    sendMessage(update.getMessage().getChatId(), "Users added today: " + count.getCountAdded()
+                    + "\n Amount seen today: " + count.getCountSeen());
                     break;
                 case "/info":
                     sendMessage(update.getMessage().getChatId(), "To update token send message \"Token={token}\"" +
@@ -195,9 +201,9 @@ public class Bot extends TelegramLongPollingBot {
     private void handleAdd(Update update) throws TelegramApiException {
         // checkToken();
         if (LocalDateTime.now().getDayOfMonth() != count.getTime().getDayOfMonth()) {
-            count = new CountForToday(0, LocalDateTime.now());
+            count = new CountForToday(0,0, LocalDateTime.now());
         } else {
-            count.increment();
+            count.incrementAdded();
         }
         if (currentUser != null & token != null) {
             Map<String, String> response = userClient.addToFriends(currentUser.getId(), token);
@@ -209,6 +215,11 @@ public class Bot extends TelegramLongPollingBot {
         List<User> users = userClient.getUsers(1, city);
         User user = users.get(0);
         currentUser = user;
+        if (LocalDateTime.now().getDayOfMonth() != count.getTime().getDayOfMonth()) {
+            count = new CountForToday(0,0, LocalDateTime.now());
+        } else {
+            count.incrementSeen();
+        }
         Long chatId = update.getMessage().getChatId();
         userClient.setViewed(user.getId());
         sendMessageWithUserInfo(chatId, user);

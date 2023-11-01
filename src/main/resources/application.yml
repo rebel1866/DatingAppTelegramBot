@@ -1,5 +1,7 @@
 bot:
   name: Stanislav_Grin_Bot
-  token: change_me
+  token: secret
   city: Минск
-  host: 192.168.100.54
+  host: localhost
+  vk:
+    token: secret

@@ -12,10 +12,14 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 public class CountForToday {
-    private Integer count;
+    private Integer countAdded;
+    private Integer countSeen;
     private LocalDateTime time;
 
-    public void increment() {
-        ++count;
+    public void incrementAdded() {
+        ++countAdded;
+    }
+    public void incrementSeen() {
+        ++countSeen;
     }
 }
