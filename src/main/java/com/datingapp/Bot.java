@@ -53,6 +53,7 @@ public class Bot extends TelegramLongPollingBot {
     private CountForToday count;
 
     private boolean isAwaitingMessage;
+    private boolean isAwaitingAddMany;
     private boolean isAwaitingPhraseId;
     @Value("${bot.vk.token}")
     private String token;
@@ -85,6 +86,31 @@ public class Bot extends TelegramLongPollingBot {
             if (input.startsWith("Token")) {
                 token = input.split("=")[1];
                 sendMessage(update.getMessage().getChatId(), "Updated");
+                return;
+            }
+            if (isAwaitingAddMany) {
+                if (input.equals("/cancel")) {
+                    sendMessage(update.getMessage().getChatId(), "Canceled");
+                } else {
+                    try {
+                        if (LocalDateTime.now().getDayOfMonth() != count.getTime().getDayOfMonth()) {
+                            count = new CountForToday(0,0, LocalDateTime.now());
+                        }
+                        List<User> users = userClient.getUsers(Integer.parseInt(input), city);
+                        users.forEach(user -> {
+                            userClient.setViewed(user.getId());
+                            userClient.addToFriends(user.getId(), token);
+                            count.incrementSeen();
+                            count.incrementAdded();
+                        });
+                    } catch (FeignException e) {
+                        sendMessage(update.getMessage().getChatId(), getErrorMessage(e.getMessage()));
+                        isAwaitingAddMany = false;
+                        return;
+                    }
+                    sendMessage(update.getMessage().getChatId(), "Success");
+                }
+                isAwaitingAddMany = false;
                 return;
             }
             if (isAwaitingMessage) {
@@ -141,6 +167,9 @@ public class Bot extends TelegramLongPollingBot {
                 case "/message":
                     handleMessage(update);
                     break;
+                case "/addmany":
+                    handleAddMany(update);
+                    break;
                 case "/count":
                     sendMessage(update.getMessage().getChatId(), "Users added today: " + count.getCountAdded()
                     + "\n Amount seen today: " + count.getCountSeen());
@@ -190,11 +219,19 @@ public class Bot extends TelegramLongPollingBot {
         sendMessage(update.getMessage().getChatId(), "Enter message:");
         isAwaitingMessage = true;
     }
+    private void handleAddMany(Update update) throws TelegramApiException {
+        sendMessage(update.getMessage().getChatId(), "Enter amount:");
+        isAwaitingAddMany = true;
+    }
+
 
     private void handleFavorite(Update update) throws TelegramApiException {
         if (currentUser != null) {
-            Map<String, String> response = userClient.addFavorite(currentUser.getId());
-            sendMessage(update.getMessage().getChatId(), response.get("response"));
+            Map<String, String> responseVk = userClient.addFavorite(currentUser.getId());
+            Map<String, String> responseApp = userClient.addAppFavorite(currentUser.getId());
+            String result = responseApp.get("response").equals("success") &&
+                    responseVk.get("response").equals("success") ? "success": "not sucess";
+            sendMessage(update.getMessage().getChatId(), result);
         }
     }
 
@@ -223,7 +260,7 @@ public class Bot extends TelegramLongPollingBot {
         Long chatId = update.getMessage().getChatId();
         userClient.setViewed(user.getId());
         sendMessageWithUserInfo(chatId, user);
-        sendMediaGroup(chatId, user.getPhotos());
+        sendMediaGroup(chatId, user.getPhotos(), user.getFirstName() + " " + user.getLastName());
     }
 
     private void sendMessageWithUserInfo(Long chatId, User user) throws TelegramApiException {
@@ -295,7 +332,7 @@ public class Bot extends TelegramLongPollingBot {
     }
 
 
-    private void sendMediaGroup(Long chatId, List<String> photoUrls) throws TelegramApiException {
+    private void sendMediaGroup(Long chatId, List<String> photoUrls, String caption) throws TelegramApiException {
         List<InputMedia> medias = photoUrls.stream()
                 .map(photoUrl -> {
                     String mediaName = UUID.randomUUID().toString();
@@ -309,7 +346,7 @@ public class Bot extends TelegramLongPollingBot {
                     return (InputMedia) InputMediaPhoto.builder()
                             .media("attach://" + mediaName)
                             .mediaName(mediaName)
-                            .isNewMedia(true).caption("Photo list")
+                            .isNewMedia(true).caption(caption)
                             .newMediaStream(input)
                             .parseMode(ParseMode.HTML)
                             .build();

@@ -32,4 +32,7 @@ public interface UserClient {
 
     @RequestLine("POST /messages/addFriend/{id}?token={token}")
     Map<String, String> addToFriends(@Param("id") Long id, @Param("token") String token);
+
+    @RequestLine("GET /users/setAppFavorite/{id}")
+    Map<String, String> addAppFavorite(@Param("id") Long id);
 }
