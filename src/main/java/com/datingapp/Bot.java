@@ -57,6 +57,8 @@ public class Bot extends TelegramLongPollingBot {
     private boolean isAwaitingPhraseId;
     @Value("${bot.vk.token}")
     private String token;
+    @Value("${bot.allowedChatId}")
+    private Long allowedChatId;
     private User currentUser;
 
     @PostConstruct
@@ -74,8 +76,9 @@ public class Bot extends TelegramLongPollingBot {
     @Override
     public void onUpdateReceived(Update update) {
         try {
-            if (!update.getMessage().getChatId().equals(963854280L)) {
-                System.out.println("Somebody else is trying to connect");
+            if (!update.getMessage().getChatId().equals(allowedChatId)) {
+                System.out.println("Somebody else is trying to connect. Chat id: " + update.getMessage().getChatId());
+                System.out.println("Allowed id: " + allowedChatId);
                 return;
             }
             String input = update.getMessage().getText();
@@ -177,6 +180,9 @@ public class Bot extends TelegramLongPollingBot {
                 case "/info":
                     sendMessage(update.getMessage().getChatId(), "To update token send message \"Token={token}\"" +
                             "\nUse https://vkhost.github.io/ to obtain token (choose VkAdmin)");
+                    break;
+                default:
+                    sendMessage(update.getMessage().getChatId(),"Unknown command");
                     break;
             }
         } catch (TelegramApiException e) {
