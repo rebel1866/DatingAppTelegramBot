@@ -48,6 +48,8 @@ public class Bot extends TelegramLongPollingBot {
     private String city;
     @Value("${bot.host}")
     private String host;
+    @Value("${bot.port}")
+    private String port;
     private UserClient userClient;
 
     private CountForToday count;
@@ -69,7 +71,7 @@ public class Bot extends TelegramLongPollingBot {
                 .decoder(new GsonDecoder())
                 .logger(new Slf4jLogger(UserClient.class))
                 .logLevel(Logger.Level.FULL)
-                .target(UserClient.class, "http://" + host + ":8080");
+                .target(UserClient.class, "http://" + host + ":" + port);
         count = new CountForToday(0,0, LocalDateTime.now());
     }
 
